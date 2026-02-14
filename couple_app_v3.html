@@ -291,7 +291,20 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 
 <div class="toast" id="toast"></div>
 
-<script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDoqBekJCyHGg8ZgZii8hKUssM2eWygb9M",
+  authDomain: "calendar-54edf.firebaseapp.com",
+  projectId: "calendar-54edf",
+  storageBucket: "calendar-54edf.firebasestorage.app",
+  messagingSenderId: "335760209643",
+  appId: "1:335760209643:web:5798209686e556eeda70ae"
+};
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
 const PALETTE=['#d4908a','#9e6b72','#8fa89a','#c9a96e','#7b9eb3','#a89ac9','#b5c98a','#e8a87c','#f4b8c8'];
 const T=new Date();
 const TY=T.getFullYear(),TM=T.getMonth(),TD=T.getDate();
@@ -305,23 +318,6 @@ let selDate=null;
 let nextId=1;
 let events=[];
 let memos=[];
-
-// ===== LOCAL STORAGE =====
-function saveData(){
-  localStorage.setItem('futari_events',JSON.stringify(events));
-  localStorage.setItem('futari_memos',JSON.stringify(memos));
-  localStorage.setItem('futari_nextId',String(nextId));
-}
-function loadData(){
-  try{
-    const ev=localStorage.getItem('futari_events');
-    const mo=localStorage.getItem('futari_memos');
-    const id=localStorage.getItem('futari_nextId');
-    if(ev)events=JSON.parse(ev);
-    if(mo)memos=JSON.parse(mo);
-    if(id)nextId=parseInt(id);
-  }catch(e){events=[];memos=[];nextId=1;}
-}
 
 // ===== HELPERS =====
 function fmtD(y,m,d){
@@ -496,40 +492,43 @@ function buildColorPicker(){
   row.appendChild(wrap);
 }
 
-// ===== EVENTS =====
-function addEvent(){
+// ===== FIREBASE: 予定追加 =====
+async function addEvent(){
   const title=document.getElementById('ev-title').value.trim();
   const date=document.getElementById('ev-date').value;
   if(!title||!date){showToast('タイトルと日付を入力してください');return;}
   const time=isAllDay?'':(document.getElementById('ev-time').value||'');
   const note=document.getElementById('ev-note').value.trim();
-  events.push({id:nextId++,date,title,who:selWho,color:selColor,time,note,repeat:selRepeat});
-  saveData();
-  document.getElementById('modal').classList.remove('open');
-  document.getElementById('ev-title').value='';
-  document.getElementById('ev-note').value='';
-  renderCalendar();
-  renderEvents(selDate);
-  const rl=selRepeat!=='none'?`（${repeatLabel(selRepeat)}）`:'';
-  showToast(`✓ 予定を追加しました${rl}`);
+  try{
+    await addDoc(collection(db,'events'),{
+      date,title,who:selWho,color:selColor,time,note,repeat:selRepeat,createdAt:Date.now()
+    });
+    document.getElementById('modal').classList.remove('open');
+    document.getElementById('ev-title').value='';
+    document.getElementById('ev-note').value='';
+    const rl=selRepeat!=='none'?`（${repeatLabel(selRepeat)}）`:'';
+    showToast(`✓ 予定を追加しました${rl}`);
+  }catch(e){showToast('❌ 保存に失敗しました');console.error(e);}
 }
 
-// ===== MEMOS =====
-function saveMemo(){
+// ===== FIREBASE: メモ =====
+async function saveMemo(){
   const text=document.getElementById('memo-text').value.trim();
   if(!text){showToast('メモを入力してください');return;}
   const activeTag=document.querySelector('#memo-tags .memo-tag.active');
   const tag=activeTag?activeTag.textContent:'';
-  memos.unshift({id:nextId++,content:text,tag,date:fmtD(TY,TM,TD)});
-  saveData();
-  document.getElementById('memo-text').value='';
-  document.querySelectorAll('#memo-tags .memo-tag.active').forEach(t=>t.classList.remove('active'));
-  renderMemos();
-  showToast('💌 メモを保存しました');
+  try{
+    await addDoc(collection(db,'memos'),{
+      content:text,tag,date:fmtD(TY,TM,TD),createdAt:Date.now()
+    });
+    document.getElementById('memo-text').value='';
+    document.querySelectorAll('#memo-tags .memo-tag.active').forEach(t=>t.classList.remove('active'));
+    showToast('💌 メモを保存しました');
+  }catch(e){showToast('❌ 保存に失敗しました');console.error(e);}
 }
-function deleteMemo(id){
-  memos=memos.filter(m=>m.id!==id);
-  saveData();renderMemos();
+async function deleteMemo(id){
+  try{await deleteDoc(doc(db,'memos',id));}
+  catch(e){showToast('❌ 削除に失敗しました');}
 }
 function renderMemos(){
   const list=document.getElementById('memo-list');
@@ -545,7 +544,7 @@ function renderMemos(){
     const left=document.createElement('div');left.className='memo-item-left';
     left.innerHTML=`<div class="memo-item-content">${m.content}</div><div class="memo-item-footer">${m.tag?`<span class="memo-item-tag">${m.tag}</span>`:''}<span class="memo-item-date">${fmtTimeLabel(m.date)}</span></div>`;
     const del=document.createElement('button');del.className='memo-delete-btn';del.textContent='✕';
-    del.addEventListener('click',()=>deleteMemo(m.id));
+    del.addEventListener('click',()=>deleteMemo(m.firestoreId));
     item.appendChild(left);item.appendChild(del);
     list.appendChild(item);
   });
@@ -615,12 +614,21 @@ document.querySelectorAll('#memo-tags .memo-tag').forEach(tag=>{
 });
 
 // ===== INIT =====
-loadData();
 buildColorPicker();
 updateCountdown();
 renderCalendar();
 renderEvents(null);
-renderMemos();
+
+// Firebaseリアルタイム同期
+onSnapshot(query(collection(db,'events'),orderBy('createdAt','asc')),snap=>{
+  events=snap.docs.map(d=>({...d.data(),firestoreId:d.id}));
+  renderCalendar();
+  renderEvents(selDate);
+});
+onSnapshot(query(collection(db,'memos'),orderBy('createdAt','desc')),snap=>{
+  memos=snap.docs.map(d=>({...d.data(),firestoreId:d.id}));
+  renderMemos();
+});
 </script>
 </body>
 </html>
