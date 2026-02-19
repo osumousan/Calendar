@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ふたりのカレンダー</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@300;400;600&family=Cormorant+Garamond:ital,wght@0,300;0,500;1,300&display=swap" rel="stylesheet">
+<style>
+:root{
+  --blush:#fce8f0;--dusty-rose:#e8a0b8;--mauve:#c87898;
+  --deep:#5a2840;--cream:#fef0f6;--sage:#8fa89a;--gold:#c9a96e;
+  --text:#5a2840;--shadow:rgba(90,40,64,0.12);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Noto Serif JP',serif;background:#fdeef5;color:var(--text);min-height:100vh;overflow-x:hidden;}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at 20% 10%,rgba(248,180,210,.3) 0%,transparent 50%),radial-gradient(ellipse at 80% 80%,rgba(240,190,220,.2) 0%,transparent 50%);pointer-events:none;z-index:0;}
+
+.app-shell{max-width:390px;margin:0 auto;min-height:100vh;position:relative;z-index:1;display:flex;flex-direction:column;}
+.status-bar{display:flex;justify-content:space-between;align-items:center;padding:12px 20px 8px;font-size:11px;color:var(--mauve);font-family:'Cormorant Garamond',serif;letter-spacing:.05em;flex-shrink:0;}
+.header{padding:8px 24px 16px;text-align:center;flex-shrink:0;}
+.couple-badge{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:4px;}
+.avatar{width:32px;height:32px;border-radius:50%;border:2px solid var(--dusty-rose);display:flex;align-items:center;justify-content:center;font-size:14px;background:white;box-shadow:0 2px 8px var(--shadow);}
+.heart-divider{font-size:16px;color:var(--dusty-rose);animation:heartbeat 2s ease-in-out infinite;}
+@keyframes heartbeat{0%,100%{transform:scale(1)}50%{transform:scale(1.2)}}
+.app-title{font-family:'Cormorant Garamond',serif;font-size:26px;font-weight:300;color:var(--deep);letter-spacing:.08em;font-style:italic;}
+.app-subtitle{font-size:10px;color:var(--dusty-rose);letter-spacing:.2em;text-transform:uppercase;margin-top:2px;}
+
+.screen{display:none;flex:1;overflow-y:auto;padding-bottom:90px;}
+.screen.active{display:block;}
+
+.add-countdown-btn{width:100%;padding:12px;background:linear-gradient(135deg,rgba(100,150,200,.15),rgba(150,180,220,.15));border:1px dashed rgba(100,150,200,.4);border-radius:12px;color:#5a8db8;font-size:13px;font-family:'Noto Serif JP',serif;cursor:pointer;transition:all .2s;}
+.add-countdown-btn:hover{background:linear-gradient(135deg,rgba(100,150,200,.25),rgba(150,180,220,.25));border-color:#5a8db8;}
+
+.custom-event-banner{margin:0 16px 12px;background:linear-gradient(135deg,#e8f4fd 0%,#dae8f8 100%);border-radius:16px;padding:14px 18px;display:flex;align-items:center;gap:14px;box-shadow:0 4px 16px rgba(100,150,200,.15);position:relative;overflow:hidden;}
+.custom-event-banner::before{content:'✨';position:absolute;right:-10px;top:-15px;font-size:80px;color:rgba(100,150,200,.08);pointer-events:none;}
+.edit-custom-btn{position:absolute;top:8px;right:8px;width:28px;height:28px;border-radius:50%;border:none;background:rgba(255,255,255,.8);color:#5a8db8;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:all .2s;z-index:10;}
+.edit-custom-btn:hover{background:white;transform:scale(1.1);}
+
+.anniversary-banner{margin:0 16px 16px;background:linear-gradient(135deg,#fde8f0 0%,#fad4e4 100%);border-radius:16px;padding:14px 18px;display:flex;align-items:center;gap:14px;box-shadow:0 4px 16px rgba(212,144,170,.2);position:relative;overflow:hidden;}
+.anniversary-banner::before{content:'♡';position:absolute;right:-10px;top:-15px;font-size:80px;color:rgba(200,100,140,.1);pointer-events:none;}
+.ann-icon{font-size:28px;flex-shrink:0;}
+.ann-text h3{font-family:'Cormorant Garamond',serif;font-size:14px;font-weight:500;color:#9e4060;letter-spacing:.05em;}
+.ann-text p{font-size:11px;color:rgba(158,64,96,.6);margin-top:2px;letter-spacing:.08em;}
+.ann-days{margin-left:auto;text-align:center;flex-shrink:0;}
+.ann-days .num{font-family:'Cormorant Garamond',serif;font-size:28px;font-weight:300;color:#c0506e;line-height:1;}
+.ann-days .label{font-size:9px;color:rgba(158,64,96,.5);letter-spacing:.1em;text-transform:uppercase;}
+
+.section{padding:0 16px;margin-bottom:16px;}
+.section-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;padding:0 4px;}
+.section-title{font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:500;color:var(--deep);letter-spacing:.05em;}
+.month-nav{display:flex;align-items:center;gap:8px;}
+.nav-btn{width:28px;height:28px;border:1px solid rgba(212,144,138,.4);background:white;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--dusty-rose);transition:all .2s;}
+.nav-btn:hover{background:var(--dusty-rose);color:white;border-color:var(--dusty-rose);}
+.month-label{font-family:'Cormorant Garamond',serif;font-size:14px;color:var(--mauve);letter-spacing:.08em;min-width:80px;text-align:center;}
+
+.calendar-card{background:white;border-radius:20px;padding:16px;box-shadow:0 2px 20px var(--shadow);}
+.day-headers{display:grid;grid-template-columns:repeat(7,1fr);margin-bottom:8px;}
+.day-header{text-align:center;font-size:10px;color:var(--mauve);letter-spacing:.08em;padding:4px 0;}
+.day-header.weekend{color:var(--dusty-rose);}
+.calendar-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;}
+.cal-day{aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:10px;cursor:pointer;transition:all .2s;position:relative;padding:2px;}
+.cal-day:not(.empty):hover{background:var(--blush);}
+.cal-day.empty{cursor:default;}
+.cal-day.today{background:var(--deep);}
+.cal-day.today .day-num{color:white;}
+.cal-day.selected:not(.today){background:var(--dusty-rose);}
+.cal-day.selected:not(.today) .day-num{color:white;}
+.cal-day.anniversary:not(.today):not(.selected){background:linear-gradient(135deg,rgba(212,144,138,.15),rgba(201,169,110,.15));border:1px solid rgba(212,144,138,.3);}
+.day-num{font-size:13px;font-family:'Cormorant Garamond',serif;font-weight:500;color:var(--text);line-height:1;}
+.cal-day.other-month .day-num{color:rgba(61,38,48,.2);}
+.cal-day.weekend:not(.today):not(.selected) .day-num{color:var(--dusty-rose);}
+.event-dots{display:flex;gap:2px;margin-top:2px;flex-wrap:wrap;justify-content:center;max-width:28px;}
+.dot{width:4px;height:4px;border-radius:50%;}
+.tap-hint{font-size:10px;color:var(--mauve);opacity:.6;text-align:center;margin-top:8px;letter-spacing:.05em;font-style:italic;}
+
+.events-card{background:white;border-radius:20px;padding:16px;box-shadow:0 2px 20px var(--shadow);}
+.events-date-header{font-family:'Cormorant Garamond',serif;font-size:15px;font-style:italic;color:var(--mauve);margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid rgba(212,144,138,.2);display:flex;align-items:center;justify-content:space-between;}
+.add-inline-btn{font-size:11px;padding:4px 12px;border-radius:20px;border:1px solid rgba(212,144,138,.4);background:white;color:var(--dusty-rose);cursor:pointer;font-family:'Noto Serif JP',serif;transition:all .2s;}
+.add-inline-btn:hover{background:var(--dusty-rose);color:white;}
+.event-item{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid rgba(61,38,48,.05);transition:all .2s;}
+.event-item:last-child{border-bottom:none;}
+.event-item:hover{transform:translateX(4px);}
+.event-color-bar{width:4px;height:40px;border-radius:2px;flex-shrink:0;}
+.event-info{flex:1;}
+.event-title-text{font-size:13px;font-weight:600;color:var(--deep);margin-bottom:2px;}
+.event-meta{font-size:11px;color:var(--mauve);opacity:.7;display:flex;gap:8px;align-items:center;}
+.repeat-badge{font-size:9px;padding:1px 6px;border-radius:8px;background:rgba(201,169,110,.15);color:var(--gold);}
+.event-who-badge{font-size:11px;padding:3px 8px;border-radius:20px;font-family:'Cormorant Garamond',serif;letter-spacing:.05em;white-space:nowrap;}
+
+.memo-screen-header{padding:16px 16px 8px;display:flex;align-items:center;justify-content:space-between;}
+.memo-screen-title{font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:500;color:var(--deep);letter-spacing:.05em;font-style:italic;}
+.memo-count{font-size:11px;color:var(--mauve);background:var(--blush);padding:3px 10px;border-radius:20px;}
+.memo-input-card{margin:0 16px 16px;background:white;border-radius:20px;padding:16px;box-shadow:0 2px 20px var(--shadow);}
+.memo-input-area{width:100%;border:none;outline:none;font-family:'Noto Serif JP',serif;font-size:13px;color:var(--text);resize:none;background:transparent;line-height:1.8;min-height:60px;}
+.memo-input-area::placeholder{color:rgba(61,38,48,.3);font-style:italic;}
+.memo-input-footer{display:flex;justify-content:space-between;align-items:center;margin-top:8px;padding-top:8px;border-top:1px solid rgba(212,144,138,.2);}
+.memo-tags{display:flex;gap:6px;flex-wrap:wrap;}
+.memo-tag{font-size:10px;padding:3px 10px;border-radius:20px;border:1px solid rgba(212,144,138,.35);color:var(--dusty-rose);cursor:pointer;transition:all .2s;letter-spacing:.05em;}
+.memo-tag:hover,.memo-tag.active{background:var(--dusty-rose);color:white;border-color:var(--dusty-rose);}
+.send-btn{width:32px;height:32px;background:var(--deep);border:none;border-radius:50%;color:white;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;transition:all .2s;flex-shrink:0;}
+.send-btn:hover{background:var(--dusty-rose);transform:scale(1.1);}
+
+.memo-list{padding:0 16px;display:flex;flex-direction:column;gap:10px;}
+.memo-item{background:white;border-radius:16px;padding:14px 16px;box-shadow:0 2px 12px var(--shadow);display:flex;gap:12px;align-items:flex-start;transition:all .2s;}
+.memo-item:hover{transform:translateY(-1px);box-shadow:0 4px 20px var(--shadow);}
+.memo-item-left{flex:1;}
+.memo-item-content{font-size:13px;color:var(--deep);line-height:1.7;margin-bottom:6px;}
+.memo-item-footer{display:flex;align-items:center;gap:8px;}
+.memo-item-tag{font-size:10px;padding:2px 8px;border-radius:10px;background:var(--blush);color:var(--dusty-rose);}
+.memo-item-date{font-size:10px;color:rgba(61,38,48,.35);font-style:italic;}
+.memo-delete-btn{width:24px;height:24px;border:none;background:rgba(61,38,48,.06);border-radius:50%;cursor:pointer;color:rgba(61,38,48,.3);font-size:12px;display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0;}
+.memo-delete-btn:hover{background:rgba(212,144,138,.2);color:var(--dusty-rose);}
+.memo-empty{text-align:center;padding:40px 20px;color:rgba(61,38,48,.3);font-style:italic;font-size:13px;}
+.memo-empty-icon{font-size:36px;margin-bottom:8px;}
+
+.bottom-nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:390px;background:rgba(253,248,245,.96);backdrop-filter:blur(12px);border-top:1px solid rgba(212,144,138,.15);display:flex;justify-content:space-around;padding:10px 0 20px;z-index:150;}
+.tab-item{display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;padding:4px 20px;border-radius:12px;transition:all .2s;border:none;background:none;}
+.tab-icon{font-size:22px;color:rgba(61,38,48,.25);transition:all .2s;}
+.tab-label{font-size:9px;color:rgba(61,38,48,.3);letter-spacing:.1em;text-transform:uppercase;transition:all .2s;}
+.tab-item.active .tab-icon{color:var(--dusty-rose);}
+.tab-item.active .tab-label{color:var(--dusty-rose);}
+
+.fab{position:fixed;bottom:86px;right:calc(50% - 195px + 16px);width:50px;height:50px;background:linear-gradient(135deg,var(--dusty-rose),var(--mauve));border:none;border-radius:50%;color:white;font-size:22px;cursor:pointer;box-shadow:0 4px 20px rgba(212,144,138,.5);transition:all .3s;display:flex;align-items:center;justify-content:center;z-index:100;}
+.fab:hover{transform:scale(1.1) rotate(45deg);}
+.fab.hidden{display:none;}
+
+.modal-overlay{position:fixed;inset:0;background:rgba(61,38,48,.5);backdrop-filter:blur(4px);z-index:200;display:none;align-items:flex-end;justify-content:center;}
+.modal-overlay.open{display:flex;}
+.modal{background:var(--cream);border-radius:24px 24px 0 0;padding:20px 20px 40px;width:100%;max-width:390px;animation:slideUp .3s ease;max-height:92vh;overflow-y:auto;}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.modal-handle{width:36px;height:4px;background:rgba(61,38,48,.15);border-radius:2px;margin:0 auto 16px;}
+.modal-title{font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:500;color:var(--deep);margin-bottom:18px;letter-spacing:.05em;}
+.form-group{margin-bottom:14px;}
+.form-label{font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:var(--mauve);margin-bottom:6px;display:block;}
+.form-input{width:100%;border:1px solid rgba(212,144,138,.3);background:white;border-radius:12px;padding:11px 14px;font-family:'Noto Serif JP',serif;font-size:14px;color:var(--text);outline:none;transition:border-color .2s;}
+.form-input:focus{border-color:var(--dusty-rose);}
+.who-selector{display:flex;gap:8px;}
+.who-btn{flex:1;padding:9px 4px;border:1px solid rgba(212,144,138,.3);background:white;border-radius:12px;cursor:pointer;font-family:'Noto Serif JP',serif;font-size:12px;color:var(--text);transition:all .2s;text-align:center;}
+.who-btn.active{background:var(--dusty-rose);color:white;border-color:var(--dusty-rose);}
+.color-picker-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+.color-swatch{width:28px;height:28px;border-radius:50%;cursor:pointer;transition:all .2s;border:3px solid transparent;flex-shrink:0;}
+.color-swatch.selected{border-color:var(--deep);transform:scale(1.2);}
+.color-custom-wrap{position:relative;width:28px;height:28px;flex-shrink:0;}
+.color-custom-btn{width:28px;height:28px;border-radius:50%;cursor:pointer;border:2px dashed rgba(61,38,48,.3);background:white;display:flex;align-items:center;justify-content:center;font-size:13px;transition:all .2s;}
+.color-custom-btn:hover{border-color:var(--dusty-rose);}
+.color-custom-input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+.time-row{display:flex;gap:8px;align-items:center;}
+.allday-toggle{padding:9px 14px;border:1px solid rgba(212,144,138,.3);background:white;border-radius:12px;cursor:pointer;font-family:'Noto Serif JP',serif;font-size:12px;color:var(--text);transition:all .2s;white-space:nowrap;}
+.allday-toggle.off{background:rgba(212,144,138,.12);border-color:var(--dusty-rose);color:var(--dusty-rose);}
+.repeat-row{display:flex;gap:6px;flex-wrap:wrap;}
+.repeat-btn{padding:7px 12px;border:1px solid rgba(212,144,138,.3);background:white;border-radius:20px;cursor:pointer;font-family:'Noto Serif JP',serif;font-size:11px;color:var(--text);transition:all .2s;}
+.repeat-btn.active{background:var(--gold);color:white;border-color:var(--gold);}
+.submit-btn{width:100%;background:linear-gradient(135deg,var(--dusty-rose),var(--mauve));color:white;border:none;border-radius:14px;padding:14px;font-family:'Cormorant Garamond',serif;font-size:16px;letter-spacing:.1em;cursor:pointer;margin-top:6px;transition:all .2s;}
+.submit-btn:hover{opacity:.9;transform:translateY(-1px);box-shadow:0 4px 16px rgba(212,144,138,.4);}
+.cancel-btn{width:100%;background:white;color:#888;border:1px solid #ddd;border-radius:14px;padding:12px;font-family:'Noto Serif JP',serif;font-size:14px;cursor:pointer;margin-top:8px;transition:all .2s;}
+.cancel-btn:hover{background:#f5f5f5;}
+
+.icon-picker{display:grid;grid-template-columns:repeat(8,1fr);gap:8px;max-height:240px;overflow-y:auto;padding:8px;background:#f9f9f9;border-radius:12px;}
+.icon-option{width:40px;height:40px;display:flex;align-items:center;justify-content:center;font-size:24px;cursor:pointer;border-radius:8px;transition:all .2s;border:2px solid transparent;}
+.icon-option:hover{background:white;transform:scale(1.1);}
+.icon-option.selected{background:white;border-color:var(--dusty-rose);transform:scale(1.15);}
+.toast{position:fixed;top:60px;left:50%;transform:translateX(-50%) translateY(-20px);background:var(--deep);color:white;padding:10px 20px;border-radius:20px;font-size:12px;letter-spacing:.05em;opacity:0;transition:all .3s;z-index:300;pointer-events:none;white-space:nowrap;}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <div class="status-bar">
+    <span id="current-time">9:41</span>
+    <span style="font-style:italic;">Calendar</span>
+    <span>●●●</span>
+  </div>
+  <div class="header">
+    <div class="couple-badge">
+      <div class="avatar">🧑</div>
+      <div class="heart-divider">♡</div>
+      <div class="avatar">👩</div>
+    </div>
+    <div class="app-title">Calendar</div>
+    <div class="app-subtitle">二人の時間を、ここに</div>
+  </div>
+
+  <!-- カレンダー画面 -->
+  <div class="screen active" id="screen-calendar">
+    <!-- イベント追加ボタン -->
+    <div style="padding:0 16px 12px;text-align:center;">
+      <button class="add-countdown-btn" onclick="openCustomEventModal()">
+        <span style="margin-right:4px;">✨</span> カウントダウンを追加
+      </button>
+    </div>
+    
+    <!-- カスタムイベントカウントダウン -->
+    <div class="custom-event-banner" id="custom-event-banner" style="display:none;">
+      <div class="ann-icon" id="custom-icon">🎡</div>
+      <div class="ann-text">
+        <h3 id="custom-event-title">イベントまであと</h3>
+        <p id="custom-event-date">-</p>
+      </div>
+      <div class="ann-days">
+        <div class="num" id="custom-days-count">0</div>
+        <div class="label">days</div>
+      </div>
+      <button class="edit-custom-btn" onclick="openCustomEventModal()">✎</button>
+    </div>
+    
+    <!-- 記念日カウントダウン -->
+    <div class="anniversary-banner">
+      <div class="ann-icon">🌹</div>
+      <div class="ann-text"><h3>記念日まであと</h3><p>Anniversary · 5月16日</p></div>
+      <div class="ann-days"><div class="num" id="days-count">0</div><div class="label">days</div></div>
+    </div>
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">カレンダー</div>
+        <div class="month-nav">
+          <button class="nav-btn" id="prev-month">‹</button>
+          <div class="month-label" id="month-label"></div>
+          <button class="nav-btn" id="next-month">›</button>
+        </div>
+      </div>
+      <div class="calendar-card">
+        <div class="day-headers">
+          <div class="day-header weekend">日</div>
+          <div class="day-header">月</div><div class="day-header">火</div>
+          <div class="day-header">水</div><div class="day-header">木</div>
+          <div class="day-header">金</div>
+          <div class="day-header weekend">土</div>
+        </div>
+        <div class="calendar-grid" id="calendar-grid"></div>
+        <div class="tap-hint">✦ 日付をタップすると予定確認＆追加できます</div>
+      </div>
+    </div>
+    <div class="section">
+      <div class="events-card">
+        <div class="events-date-header">
+          <span id="events-date-header">今日の予定</span>
+          <button class="add-inline-btn" id="add-inline-btn">＋ 追加</button>
+        </div>
+        <div id="events-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- メモ画面 -->
+  <div class="screen" id="screen-memo">
+    <div class="memo-screen-header">
+      <div class="memo-screen-title">ふたりのメモ</div>
+      <div class="memo-count" id="memo-count">0件</div>
+    </div>
+    <div class="memo-input-card">
+      <textarea class="memo-input-area" placeholder="行きたい場所、やりたいこと、彼女へのメッセージ…" id="memo-text" rows="3"></textarea>
+      <div class="memo-input-footer">
+        <div class="memo-tags" id="memo-tags">
+          <span class="memo-tag">行きたい場所</span>
+          <span class="memo-tag">やりたいこと</span>
+          <span class="memo-tag">ほしいもの</span>
+          <span class="memo-tag">大事なこと</span>
+        </div>
+        <button class="send-btn" id="send-memo-btn">→</button>
+      </div>
+    </div>
+    <div class="memo-list" id="memo-list"></div>
+  </div>
+</div>
+
+<button class="fab" id="fab">＋</button>
+
+<div class="bottom-nav">
+  <button class="tab-item active" id="tab-calendar" data-tab="calendar">
+    <div class="tab-icon">🗓</div>
+    <div class="tab-label">カレンダー</div>
+  </button>
+  <button class="tab-item" id="tab-memo" data-tab="memo">
+    <div class="tab-icon">📝</div>
+    <div class="tab-label">メモ</div>
+  </button>
+</div>
+
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">新しい予定を追加</div>
+    <div class="form-group">
+      <label class="form-label">タイトル</label>
+      <input class="form-input" id="ev-title" placeholder="例：映画デート 🎬">
+    </div>
+    <div class="form-group">
+      <label class="form-label">日付</label>
+      <input class="form-input" type="date" id="ev-date">
+    </div>
+    <div class="form-group">
+      <label class="form-label">時間</label>
+      <div class="time-row">
+        <button class="allday-toggle" id="allday-btn">終日</button>
+        <input class="form-input" type="time" id="ev-time" style="display:none;flex:1;">
+        <input class="form-input" type="time" id="ev-time-end" style="display:none;flex:1;">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">誰の予定？</label>
+      <div class="who-selector">
+        <button class="who-btn" data-who="mine">🧑 カイト</button>
+        <button class="who-btn" data-who="hers">👩 ハルア</button>
+        <button class="who-btn active" data-who="shared">💑 ふたり</button>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">色で区別</label>
+      <div class="color-picker-row" id="color-picker"></div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">繰り返し</label>
+      <div class="repeat-row">
+        <button class="repeat-btn active" data-repeat="none">なし</button>
+        <button class="repeat-btn" data-repeat="daily">毎日</button>
+        <button class="repeat-btn" data-repeat="weekly">毎週</button>
+        <button class="repeat-btn" data-repeat="monthly">毎月</button>
+        <button class="repeat-btn" data-repeat="yearly">毎年</button>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">メモ（任意）</label>
+      <input class="form-input" id="ev-note" placeholder="場所や詳細など…">
+    </div>
+    <button class="submit-btn" id="submit-event-btn">予定を追加する</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- カスタムイベント設定モーダル -->
+<div class="modal-overlay" id="custom-event-modal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">カウントダウン設定</div>
+    
+    <div class="form-group">
+      <label class="form-label">イベントを選択</label>
+      <select class="form-input" id="custom-event-select">
+        <option value="">選択してください</option>
+      </select>
+    </div>
+    
+    <div class="form-group">
+      <label class="form-label">アイコン</label>
+      <div class="icon-picker" id="icon-picker">
+        <div class="icon-option" data-icon="🎡">🎡</div>
+        <div class="icon-option" data-icon="🎢">🎢</div>
+        <div class="icon-option" data-icon="🎪">🎪</div>
+        <div class="icon-option" data-icon="🎭">🎭</div>
+        <div class="icon-option" data-icon="🎬">🎬</div>
+        <div class="icon-option" data-icon="🎨">🎨</div>
+        <div class="icon-option" data-icon="🎤">🎤</div>
+        <div class="icon-option" data-icon="🎸">🎸</div>
+        <div class="icon-option" data-icon="🎹">🎹</div>
+        <div class="icon-option" data-icon="🎺">🎺</div>
+        <div class="icon-option" data-icon="🎻">🎻</div>
+        <div class="icon-option" data-icon="🎮">🎮</div>
+        <div class="icon-option" data-icon="🎯">🎯</div>
+        <div class="icon-option" data-icon="🎳">🎳</div>
+        <div class="icon-option" data-icon="🎾">🎾</div>
+        <div class="icon-option" data-icon="⚽">⚽</div>
+        <div class="icon-option" data-icon="🏀">🏀</div>
+        <div class="icon-option" data-icon="🏈">🏈</div>
+        <div class="icon-option" data-icon="⚾">⚾</div>
+        <div class="icon-option" data-icon="🎿">🎿</div>
+        <div class="icon-option" data-icon="🏂">🏂</div>
+        <div class="icon-option" data-icon="🏊">🏊</div>
+        <div class="icon-option" data-icon="🚗">🚗</div>
+        <div class="icon-option" data-icon="✈️">✈️</div>
+        <div class="icon-option" data-icon="🚢">🚢</div>
+        <div class="icon-option" data-icon="🎂">🎂</div>
+        <div class="icon-option" data-icon="🍰">🍰</div>
+        <div class="icon-option" data-icon="🍾">🍾</div>
+        <div class="icon-option" data-icon="🎁">🎁</div>
+        <div class="icon-option" data-icon="🎈">🎈</div>
+        <div class="icon-option" data-icon="🎉">🎉</div>
+        <div class="icon-option" data-icon="🎊">🎊</div>
+        <div class="icon-option" data-icon="💒">💒</div>
+        <div class="icon-option" data-icon="💍">💍</div>
+        <div class="icon-option" data-icon="💐">💐</div>
+        <div class="icon-option" data-icon="🌸">🌸</div>
+        <div class="icon-option" data-icon="🌺">🌺</div>
+        <div class="icon-option" data-icon="🌻">🌻</div>
+        <div class="icon-option" data-icon="🌹">🌹</div>
+        <div class="icon-option" data-icon="🏝️">🏝️</div>
+        <div class="icon-option" data-icon="🏖️">🏖️</div>
+        <div class="icon-option" data-icon="🗼">🗼</div>
+        <div class="icon-option" data-icon="🏰">🏰</div>
+        <div class="icon-option" data-icon="⛩️">⛩️</div>
+        <div class="icon-option" data-icon="🗻">🗻</div>
+        <div class="icon-option" data-icon="🌃">🌃</div>
+        <div class="icon-option" data-icon="🌆">🌆</div>
+        <div class="icon-option" data-icon="⭐">⭐</div>
+        <div class="icon-option" data-icon="✨">✨</div>
+        <div class="icon-option" data-icon="💫">💫</div>
+      </div>
+    </div>
+    
+    <button class="submit-btn" id="save-custom-event-btn">設定する</button>
+    <button class="cancel-btn" id="cancel-custom-event-btn">削除</button>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDoqBekJCyHGg8ZgZii8hKUssM2eWygb9M",
+  authDomain: "calendar-54edf.firebaseapp.com",
+  projectId: "calendar-54edf",
+  storageBucket: "calendar-54edf.firebasestorage.app",
+  messagingSenderId: "335760209643",
+  appId: "1:335760209643:web:5798209686e556eeda70ae"
+};
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const PALETTE=['#d4908a','#9e6b72','#8fa89a','#c9a96e','#7b9eb3','#a89ac9','#b5c98a','#e8a87c','#f4b8c8'];
+const T=new Date();
+const TY=T.getFullYear(),TM=T.getMonth(),TD=T.getDate();
+
+let selColor=PALETTE[3];
+let selWho='shared';
+let selRepeat='none';
+let isAllDay=true;
+let curY=TY,curM=TM;
+let selDate=null;
+let nextId=1;
+let events=[];
+let memos=[];
+let customEvent=null;
+let selectedIcon='🎡';
+
+// ===== HELPERS =====
+function fmtD(y,m,d){
+  const dt=new Date(y,m,d);
+  return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+}
+function fmtDateLabel(ds){
+  const months=['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+  const[y,m,d]=ds.split('-').map(Number);
+  return `${y}年${months[m-1]}${d}日`;
+}
+function fmtTimeLabel(ds){
+  const now=new Date();
+  const[y,m,d]=ds.split('-').map(Number);
+  const dt=new Date(y,m-1,d);
+  const diff=Math.floor((now-dt)/86400000);
+  if(diff===0)return '今日';
+  if(diff===1)return '昨日';
+  if(diff<7)return `${diff}日前`;
+  return `${m}/${d}`;
+}
+function getEventsForDate(ds){
+  return events.filter(ev=>{
+    if(ev.date===ds)return true;
+    if(ev.repeat==='none')return false;
+    const[ey,em,ed]=ev.date.split('-').map(Number);
+    const[ty,tm,td]=ds.split('-').map(Number);
+    if(ev.repeat==='daily')return ds>=ev.date;
+    if(ev.repeat==='weekly'){
+      const o=new Date(ey,em-1,ed),t2=new Date(ty,tm-1,td);
+      const diff=(t2-o)/86400000;
+      return diff>=0&&diff%7===0;
+    }
+    if(ev.repeat==='monthly')return em===tm&&ed===td&&ds>=ev.date;
+    if(ev.repeat==='yearly')return em===tm&&ed===td;
+    return false;
+  });
+}
+function repeatLabel(r){return{none:'',daily:'毎日',weekly:'毎週',monthly:'毎月',yearly:'毎年'}[r]||'';}
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2500);
+}
+
+// ===== CLOCK =====
+function updateClock(){
+  const n=new Date();
+  document.getElementById('current-time').textContent=`${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`;
+}
+setInterval(updateClock,1000);updateClock();
+
+// ===== CUSTOM EVENT & ANNIVERSARY =====
+function updateCustomCountdown(){
+  const addBtn=document.querySelector('.add-countdown-btn');
+  if(!customEvent){
+    document.getElementById('custom-event-banner').style.display='none';
+    if(addBtn)addBtn.parentElement.style.display='block';
+    return;
+  }
+  document.getElementById('custom-event-banner').style.display='flex';
+  if(addBtn)addBtn.parentElement.style.display='none';
+  const now=new Date();
+  const target=new Date(customEvent.date);
+  const diff=Math.ceil((target-now)/86400000);
+  document.getElementById('custom-days-count').textContent=diff<=0?'今日！':diff;
+  document.getElementById('custom-event-title').textContent=customEvent.title+'まであと';
+  document.getElementById('custom-event-date').textContent=fmtDateLabel(customEvent.date);
+  document.getElementById('custom-icon').textContent=customEvent.icon;
+}
+
+function openCustomEventModal(){
+  const select=document.getElementById('custom-event-select');
+  select.innerHTML='<option value="">選択してください</option>';
+  events.forEach(ev=>{
+    const opt=document.createElement('option');
+    opt.value=ev.firestoreId||ev.id;
+    opt.textContent=`${ev.title} (${fmtDateLabel(ev.date)})`;
+    if(customEvent && customEvent.id===ev.firestoreId)opt.selected=true;
+    select.appendChild(opt);
+  });
+  if(customEvent){
+    selectedIcon=customEvent.icon;
+    document.querySelectorAll('.icon-option').forEach(ic=>{
+      ic.classList.toggle('selected',ic.dataset.icon===selectedIcon);
+    });
+  }
+  document.getElementById('custom-event-modal').classList.add('open');
+}
+
+function saveCustomEvent(){
+  const selectId=document.getElementById('custom-event-select').value;
+  if(!selectId){showToast('イベントを選択してください');return;}
+  const ev=events.find(e=>(e.firestoreId||e.id)==selectId);
+  if(!ev){showToast('イベントが見つかりません');return;}
+  customEvent={id:ev.firestoreId||ev.id,title:ev.title,date:ev.date,icon:selectedIcon};
+  localStorage.setItem('customEvent',JSON.stringify(customEvent));
+  updateCustomCountdown();
+  document.getElementById('custom-event-modal').classList.remove('open');
+  showToast('✓ カウントダウンを設定しました');
+}
+
+function deleteCustomEvent(){
+  customEvent=null;
+  localStorage.removeItem('customEvent');
+  updateCustomCountdown();
+  document.getElementById('custom-event-modal').classList.remove('open');
+  showToast('カウントダウンを削除しました');
+}
+
+function loadCustomEvent(){
+  const saved=localStorage.getItem('customEvent');
+  if(saved){
+    try{customEvent=JSON.parse(saved);}catch(e){customEvent=null;}
+  }
+}
+
+function updateCountdown(){
+  const now=new Date();
+  let next=new Date(now.getFullYear(),4,16);
+  if(next<=now)next.setFullYear(next.getFullYear()+1);
+  const diff=Math.ceil((next-now)/86400000);
+  document.getElementById('days-count').textContent=diff===0?'今日！':diff;
+}
+
+// ===== CALENDAR =====
+function changeMonth(dir){
+  curM+=dir;
+  if(curM>11){curM=0;curY++;}
+  if(curM<0){curM=11;curY--;}
+  renderCalendar();
+}
+function renderCalendar(){
+  const months=['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+  document.getElementById('month-label').textContent=`${curY}年 ${months[curM]}`;
+  const grid=document.getElementById('calendar-grid');
+  grid.innerHTML='';
+  const first=new Date(curY,curM,1).getDay();
+  const dim=new Date(curY,curM+1,0).getDate();
+  const prev=new Date(curY,curM,0).getDate();
+  for(let i=first-1;i>=0;i--){grid.appendChild(makeEmpty(prev-i));}
+  for(let d=1;d<=dim;d++){
+    const ds=fmtD(curY,curM,d);
+    const isToday=d===TD&&curM===TM&&curY===TY;
+    const isSel=selDate===ds;
+    const isWE=[0,6].includes(new Date(curY,curM,d).getDay());
+    const isAnn=curM===4&&d===16;
+    const evs=getEventsForDate(ds);
+    const cell=document.createElement('div');
+    let cls='cal-day';
+    if(isToday)cls+=' today';
+    if(isSel)cls+=' selected';
+    if(isWE)cls+=' weekend';
+    if(isAnn)cls+=' anniversary';
+    cell.className=cls;
+    const num=document.createElement('div');
+    num.className='day-num';num.textContent=d;cell.appendChild(num);
+    if(evs.length){
+      const dots=document.createElement('div');dots.className='event-dots';
+      evs.slice(0,3).forEach(ev=>{
+        const dot=document.createElement('div');dot.className='dot';
+        dot.style.background=ev.color||'#d4908a';dots.appendChild(dot);
+      });
+      cell.appendChild(dots);
+    }
+    cell.addEventListener('click',()=>selectDate(ds));
+    grid.appendChild(cell);
+  }
+  const total=first+dim;
+  const rem=total%7===0?0:7-(total%7);
+  for(let d=1;d<=rem;d++)grid.appendChild(makeEmpty(d));
+}
+function makeEmpty(d){
+  const c=document.createElement('div');c.className='cal-day empty other-month';
+  const n=document.createElement('div');n.className='day-num';n.textContent=d;c.appendChild(n);return c;
+}
+function selectDate(ds){
+  selDate=ds;
+  document.getElementById('ev-date').value=ds;
+  renderCalendar();
+  renderEvents(ds);
+}
+function renderEvents(ds){
+  const hdr=document.getElementById('events-date-header');
+  const list=document.getElementById('events-list');
+  const target=ds||fmtD(TY,TM,TD);
+  hdr.textContent=ds?fmtDateLabel(ds):'今日の予定';
+  const evs=getEventsForDate(target);
+  list.innerHTML='';
+  if(!evs.length){
+    list.innerHTML=`<div style="text-align:center;padding:20px;color:rgba(61,38,48,.3);font-style:italic;font-size:13px;">この日は予定なし ☁️</div>`;
+    return;
+  }
+  const whoL={mine:'カイト',hers:'ハルア',shared:'ふたり'};
+  evs.forEach(ev=>{
+    const item=document.createElement('div');item.className='event-item';
+    const rl=repeatLabel(ev.repeat);
+    item.innerHTML=`
+      <div class="event-color-bar" style="background:${ev.color}"></div>
+      <div class="event-info">
+        <div class="event-title-text">${ev.title}</div>
+        <div class="event-meta">
+          ${ev.time?`<span>🕐 ${ev.time}</span>`:'<span>終日</span>'}
+          ${rl?`<span class="repeat-badge">🔁 ${rl}</span>`:''}
+        </div>
+      </div>
+      <span class="event-who-badge" style="background:${ev.color}22;color:${ev.color}">${whoL[ev.who]||''}</span>
+    `;
+    list.appendChild(item);
+  });
+}
+
+// ===== COLOR PICKER =====
+function buildColorPicker(){
+  const row=document.getElementById('color-picker');row.innerHTML='';
+  PALETTE.forEach(c=>{
+    const sw=document.createElement('div');
+    sw.className='color-swatch'+(c===selColor?' selected':'');
+    sw.style.background=c;
+    sw.addEventListener('click',()=>{
+      selColor=c;
+      row.querySelectorAll('.color-swatch').forEach(s=>s.classList.remove('selected'));
+      sw.classList.add('selected');
+    });
+    row.appendChild(sw);
+  });
+  const wrap=document.createElement('div');wrap.className='color-custom-wrap';
+  const btn=document.createElement('div');btn.className='color-custom-btn';btn.textContent='＋';
+  const inp=document.createElement('input');inp.type='color';inp.className='color-custom-input';
+  inp.addEventListener('change',()=>{
+    selColor=inp.value;
+    row.querySelectorAll('.color-swatch').forEach(s=>s.classList.remove('selected'));
+    btn.style.background=inp.value;btn.textContent='';
+  });
+  wrap.appendChild(btn);wrap.appendChild(inp);
+  row.appendChild(wrap);
+}
+
+// ===== FIREBASE: 予定追加 =====
+async function addEvent(){
+  const title=document.getElementById('ev-title').value.trim();
+  const date=document.getElementById('ev-date').value;
+  if(!title||!date){showToast('タイトルと日付を入力してください');return;}
+  const time=isAllDay?'':(document.getElementById('ev-time').value||'');
+  const note=document.getElementById('ev-note').value.trim();
+  try{
+    await addDoc(collection(db,'events'),{
+      date,title,who:selWho,color:selColor,time,note,repeat:selRepeat,createdAt:Date.now()
+    });
+    document.getElementById('modal').classList.remove('open');
+    document.getElementById('ev-title').value='';
+    document.getElementById('ev-note').value='';
+    const rl=selRepeat!=='none'?`（${repeatLabel(selRepeat)}）`:'';
+    showToast(`✓ 予定を追加しました${rl}`);
+  }catch(e){showToast('❌ 保存に失敗しました');console.error(e);}
+}
+
+// ===== FIREBASE: メモ =====
+async function saveMemo(){
+  const text=document.getElementById('memo-text').value.trim();
+  if(!text){showToast('メモを入力してください');return;}
+  const activeTag=document.querySelector('#memo-tags .memo-tag.active');
+  const tag=activeTag?activeTag.textContent:'';
+  try{
+    await addDoc(collection(db,'memos'),{
+      content:text,tag,date:fmtD(TY,TM,TD),createdAt:Date.now()
+    });
+    document.getElementById('memo-text').value='';
+    document.querySelectorAll('#memo-tags .memo-tag.active').forEach(t=>t.classList.remove('active'));
+    showToast('💌 メモを保存しました');
+  }catch(e){showToast('❌ 保存に失敗しました');console.error(e);}
+}
+async function deleteMemo(id){
+  try{await deleteDoc(doc(db,'memos',id));}
+  catch(e){showToast('❌ 削除に失敗しました');}
+}
+function renderMemos(){
+  const list=document.getElementById('memo-list');
+  const count=document.getElementById('memo-count');
+  count.textContent=`${memos.length}件`;
+  list.innerHTML='';
+  if(!memos.length){
+    list.innerHTML=`<div class="memo-empty"><div class="memo-empty-icon">📝</div><div>まだメモがありません</div><div style="margin-top:4px;font-size:11px;">行きたい場所ややりたいことを書いてみよう</div></div>`;
+    return;
+  }
+  memos.forEach(m=>{
+    const item=document.createElement('div');item.className='memo-item';
+    const left=document.createElement('div');left.className='memo-item-left';
+    left.innerHTML=`<div class="memo-item-content">${m.content}</div><div class="memo-item-footer">${m.tag?`<span class="memo-item-tag">${m.tag}</span>`:''}<span class="memo-item-date">${fmtTimeLabel(m.date)}</span></div>`;
+    const del=document.createElement('button');del.className='memo-delete-btn';del.textContent='✕';
+    del.addEventListener('click',()=>deleteMemo(m.firestoreId));
+    item.appendChild(left);item.appendChild(del);
+    list.appendChild(item);
+  });
+}
+
+// ===== EVENT LISTENERS =====
+// 月ナビ
+document.getElementById('prev-month').addEventListener('click',()=>changeMonth(-1));
+document.getElementById('next-month').addEventListener('click',()=>changeMonth(1));
+
+// タブ
+document.querySelectorAll('[data-tab]').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    const tab=btn.dataset.tab;
+    document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+    document.querySelectorAll('.tab-item').forEach(t=>t.classList.remove('active'));
+    document.getElementById(`screen-${tab}`).classList.add('active');
+    document.getElementById(`tab-${tab}`).classList.add('active');
+    document.getElementById('fab').classList.toggle('hidden',tab!=='calendar');
+  });
+});
+
+// モーダル
+function openModal(){
+  document.getElementById('ev-date').value=selDate||fmtD(TY,TM,TD);
+  document.getElementById('modal').classList.add('open');
+}
+document.getElementById('fab').addEventListener('click',openModal);
+document.getElementById('add-inline-btn').addEventListener('click',openModal);
+document.getElementById('modal').addEventListener('click',e=>{
+  if(e.target.id==='modal')document.getElementById('modal').classList.remove('open');
+});
+
+// 終日トグル
+document.getElementById('allday-btn').addEventListener('click',()=>{
+  isAllDay=!isAllDay;
+  const btn=document.getElementById('allday-btn');
+  btn.textContent=isAllDay?'終日':'時間あり';
+  btn.classList.toggle('off',!isAllDay);
+  document.getElementById('ev-time').style.display=isAllDay?'none':'block';
+  document.getElementById('ev-time-end').style.display=isAllDay?'none':'block';
+});
+
+// 誰の予定
+document.querySelectorAll('[data-who]').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    selWho=btn.dataset.who;
+    document.querySelectorAll('[data-who]').forEach(b=>b.classList.toggle('active',b===btn));
+  });
+});
+
+// 繰り返し
+document.querySelectorAll('[data-repeat]').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    selRepeat=btn.dataset.repeat;
+    document.querySelectorAll('[data-repeat]').forEach(b=>b.classList.toggle('active',b===btn));
+  });
+});
+
+// 予定追加・メモ
+document.getElementById('submit-event-btn').addEventListener('click',addEvent);
+document.getElementById('send-memo-btn').addEventListener('click',saveMemo);
+
+// メモタグ
+document.querySelectorAll('#memo-tags .memo-tag').forEach(tag=>{
+  tag.addEventListener('click',()=>tag.classList.toggle('active'));
+});
+
+// カスタムイベントモーダル
+document.getElementById('custom-event-modal').addEventListener('click',e=>{
+  if(e.target.id==='custom-event-modal')document.getElementById('custom-event-modal').classList.remove('open');
+});
+document.getElementById('save-custom-event-btn').addEventListener('click',saveCustomEvent);
+document.getElementById('cancel-custom-event-btn').addEventListener('click',deleteCustomEvent);
+document.querySelectorAll('.icon-option').forEach(icon=>{
+  icon.addEventListener('click',()=>{
+    selectedIcon=icon.dataset.icon;
+    document.querySelectorAll('.icon-option').forEach(ic=>ic.classList.remove('selected'));
+    icon.classList.add('selected');
+  });
+});
+window.openCustomEventModal=openCustomEventModal;
+
+// ===== INIT =====
+loadCustomEvent();
+buildColorPicker();
+updateCustomCountdown();
+updateCountdown();
+renderCalendar();
+renderEvents(null);
+
+// Firebaseリアルタイム同期
+onSnapshot(query(collection(db,'events'),orderBy('createdAt','asc')),snap=>{
+  events=snap.docs.map(d=>({...d.data(),firestoreId:d.id}));
+  renderCalendar();
+  renderEvents(selDate);
+  updateCustomCountdown();
+});
+onSnapshot(query(collection(db,'memos'),orderBy('createdAt','desc')),snap=>{
+  memos=snap.docs.map(d=>({...d.data(),firestoreId:d.id}));
+  renderMemos();
+});
+</script>
+</body>
+</html>
